@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIP Equipment Monitoring</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <h1>GIP Equipment Monitoring</h1>
+            <span class="subtitle">Fleet Tracking Dashboard</span>
+        </div>
+        <div class="header-right">
+            <span id="status-indicator" class="status-dot online"></span>
+            <span id="status-text">Connected</span>
+            <button id="btn-save" class="btn btn-save" onclick="saveAll()">Save to Excel</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <button id="btn-add-equipment" class="btn btn-primary" onclick="openAddEquipmentModal()">+ Add Equipment</button>
+            <div class="stats">
+                <div class="stat-box">
+                    <span class="stat-value" id="stat-total">0</span>
+                    <span class="stat-label">Total Tracked</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="stat-assigned">0</span>
+                    <span class="stat-label">Assigned</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-value" id="stat-available">0</span>
+                    <span class="stat-label">Available</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment Tracking Table -->
+        <div class="table-container">
+            <table id="tracking-table">
+                <thead>
+                    <tr>
+                        <th>Equipment ID</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Assigned Project</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tracking-tbody">
+                    <tr id="empty-row">
+                        <td colspan="7" class="empty-state">No equipment tracked yet. Click "Add Equipment" to begin.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Add Equipment Modal -->
+    <div id="modal-add-equipment" class="modal-overlay" onclick="closeModal(event, 'modal-add-equipment')">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>Add Equipment from Fleet</h2>
+                <div class="modal-header-actions">
+                    <button class="btn btn-sm btn-outline" id="btn-toggle-fleet-edit" onclick="toggleFleetEditMode()">Edit Fleet</button>
+                    <button class="btn btn-sm btn-primary" id="btn-add-fleet-item" style="display:none" onclick="openFleetItemForm()">+ New Item</button>
+                    <button class="modal-close" onclick="closeModalById('modal-add-equipment')">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="fleet-search" class="search-input" placeholder="Search fleet..." oninput="filterFleetList()">
+                <!-- Inline form for adding/editing fleet item -->
+                <div id="fleet-item-form" class="fleet-edit-form" style="display:none">
+                    <h3 id="fleet-form-title">New Fleet Item</h3>
+                    <div class="form-row">
+                        <div class="field-group">
+                            <label>Equipment ID</label>
+                            <input type="text" id="fleet-form-id" placeholder="e.g. EQ-011">
+                        </div>
+                        <div class="field-group">
+                            <label>Corporate Rate ($/hr)</label>
+                            <input type="number" id="fleet-form-rate" min="0" step="1" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="field-group" style="margin-top:8px">
+                        <label>Description</label>
+                        <input type="text" id="fleet-form-desc" placeholder="e.g. Komatsu PC200 Excavator">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-sm btn-primary" onclick="saveFleetItem()">Save</button>
+                        <button class="btn btn-sm btn-outline" onclick="cancelFleetItemForm()">Cancel</button>
+                    </div>
+                </div>
+                <div id="fleet-list" class="selectable-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Project Modal -->
+    <div id="modal-assign-project" class="modal-overlay" onclick="closeModal(event, 'modal-assign-project')">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>Assign to Project</h2>
+                <button class="modal-close" onclick="closeModalById('modal-assign-project')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-info">Assigning: <strong id="assign-equipment-name"></strong></p>
+                <input type="text" id="project-search" class="search-input" placeholder="Search projects..." oninput="filterProjectList()">
+                <div id="project-list" class="selectable-list"></div>
+                <div class="date-fields">
+                    <div class="field-group">
+                        <label>Start Date</label>
+                        <input type="date" id="assign-start-date">
+                    </div>
+                    <div class="field-group">
+                        <label>Expected End Date</label>
+                        <input type="date" id="assign-end-date">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipment Detail Panel -->
+    <div id="detail-panel" class="detail-panel">
+        <div class="detail-header">
+            <h2 id="detail-title">Equipment Details</h2>
+            <div class="modal-header-actions">
+                <button class="btn btn-sm btn-outline" id="btn-view-logs" onclick="toggleLogs()">View Logs</button>
+                <button class="modal-close" onclick="closeDetailPanel()">&times;</button>
+            </div>
+        </div>
+        <!-- Detail edit view -->
+        <div class="detail-body" id="detail-edit-view">
+            <div class="detail-field">
+                <label>Equipment ID</label>
+                <input type="text" id="detail-id" readonly>
+            </div>
+            <div class="detail-field">
+                <label>Current Status</label>
+                <select id="detail-status">
+                    <option value="Available">Available</option>
+                    <option value="Assigned">Assigned</option>
+                    <option value="In Transit">In Transit</option>
+                    <option value="Under Maintenance">Under Maintenance</option>
+                    <option value="Out of Service">Out of Service</option>
+                </select>
+            </div>
+            <div class="detail-field">
+                <label>Hours Since Deployment</label>
+                <input type="number" id="detail-hours-deployed" min="0" step="0.5">
+            </div>
+            <div class="detail-field">
+                <label>Maintenance Hours</label>
+                <input type="number" id="detail-maintenance-hours" min="0" step="0.5">
+            </div>
+            <div class="detail-field">
+                <label>Total Operated Hours</label>
+                <input type="number" id="detail-total-hours" min="0" step="0.5">
+            </div>
+            <div class="detail-field">
+                <label>Notes</label>
+                <textarea id="detail-notes" rows="4"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="saveDetail()">Update Details</button>
+        </div>
+        <!-- Logs history view -->
+        <div class="detail-body" id="detail-logs-view" style="display:none">
+            <div id="logs-container" class="logs-container"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
